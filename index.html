@@ -49,7 +49,7 @@ button:disabled{opacity:.5;cursor:default}
 .palettes{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
 .palettes button{padding:0;height:30px;overflow:hidden;display:flex}
 .palettes button i{flex:1}
-.colors{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.colors{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .themes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
 .themes button{padding:6px 4px;font-size:13px}
 .colors label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted);text-align:center}
@@ -99,8 +99,24 @@ input[type=file]{display:none}
 <main>
   <div class="rail left">
     <section>
+      <h2>Product</h2>
+      <div class="themes" id="products" style="grid-template-columns:1fr 1fr">
+        <button type="button" data-k="letter" aria-pressed="true">Standing letter</button>
+        <button type="button" data-k="pen" aria-pressed="false">Pen stand</button>
+      </div>
+      <div class="stack" id="penopts" hidden>
+        <label class="f" style="grid-template-columns:1fr 150px">Cup shape <select id="cupshape"><option value="box">Rounded box</option><option value="hex">Hexagon</option><option value="round">Round</option></select></label>
+        <label class="f" style="grid-template-columns:1fr 150px">Wall cut-outs <select id="cupcut"><option value="none">None</option><option value="slots">Tall slots</option><option value="windows">Windows</option><option value="diamonds">Diamonds</option><option value="circles">Circles</option></select></label>
+        <label class="f" style="grid-template-columns:1fr 150px">Cup colours <select id="cupcolors"><option value="single">One colour</option><option value="base">Accent base and rim</option><option value="bands">Three bands</option><option value="stripes">Stripes</option></select></label>
+        <div class="stack" id="fields-cup"></div>
+        <label class="chk"><input type="checkbox" id="cuprim" checked> Thicker rim around the top</label>
+        <label class="chk"><input type="checkbox" id="cupplate" checked> Base plate under the letter</label>
+        <p class="note">The cup stands behind the letter, so the letter and name form the front. Print the cup upright and glue the letter to its flat front. With the base plate on, the letter stands on a plate that is part of the cup, which lines it up and gives more area to glue. Cut-outs skip the flat front so the letter has a solid wall to sit on. Colour bands change by height, so they print with a filament change at those layers.</p>
+      </div>
+    </section>
+    <section>
       <h2>Initial letter</h2>
-      <input type="text" id="letter" class="big" value="M" maxlength="3" aria-label="Initial letter">
+      <input type="text" id="letter" class="big" value="M" maxlength="6" aria-label="Initial letter">
       <label class="f" style="grid-template-columns:50px 1fr">Font <select id="lfont"></select></label>
       <div class="stack" id="fields-letter"></div>
       <label class="chk"><input type="checkbox" id="split"> Two-colour letter (top and bottom parts)</label>
@@ -117,6 +133,7 @@ input[type=file]{display:none}
       <div class="stack" id="fields-name"></div>
       <p class="note" id="namenote"></p>
       <div class="stack" id="sliders-name"></div>
+      <button id="fitname" type="button">Fit name to the letter</button>
       <label class="chk"><input type="checkbox" id="cut" checked> Cut a slot in the letter so the name fits in</label>
       <div class="stack" id="fields-cut"></div>
       <p class="note" id="cutnote">The slot follows the name's outline where it crosses the letter. The name drops in and still stands proud of the face.</p>
@@ -143,7 +160,7 @@ input[type=file]{display:none}
     </section>
     <section>
       <div class="row"><label class="btn" for="fontfile">Load your own font file</label><input type="file" id="fontfile" accept=".ttf,.otf,.woff,.woff2"></div>
-      <p class="note">A loaded font appears in both font lists.</p>
+      <p class="note">A loaded font appears in both font lists. Names in Hindi, Telugu, Tamil, Kannada, Malayalam, Bengali, Gujarati, Punjabi or Odia work too: pick a font from "Indian languages" and use the Outline name style to join the pieces.</p>
       <p class="note warn" id="fontnote" hidden></p>
     </section>
   </div>
@@ -171,7 +188,20 @@ input[type=file]{display:none}
       <h2>Parts and filament</h2>
       <table id="parts"></table>
       <label class="f">Filament price per kg <input type="number" id="price" value="1000" min="0" step="50"></label>
+      <label class="f">Other costs per piece <input type="number" id="othercost" value="50" min="0" step="10"></label>
+      <label class="f">Margin <small>%</small> <input type="number" id="margin" value="150" min="0" step="10"></label>
       <p class="note" id="cost"></p>
+    </section>
+    <section>
+      <h2>Print check</h2>
+      <label class="f">Printer bed size <small>mm</small> <input type="number" id="bed" value="256" min="100" max="600" step="1"></label>
+      <div class="stack" id="checks"></div>
+    </section>
+    <section>
+      <h2>Designs</h2>
+      <div class="row"><button id="savedesign" type="button">Save design</button><label class="btn" for="loadfile">Load design</label><input type="file" id="loadfile" accept=".json,application/json"></div>
+      <button id="newdesign" type="button">Start a new design</button>
+      <p class="note">Your current design is remembered in this browser. Save it as a file to keep one per customer. Imported models and image badges are not stored, so add those again after loading.</p>
     </section>
     <section>
       <h2>Badges</h2>
@@ -181,6 +211,7 @@ input[type=file]{display:none}
       </div>
       <div class="row"><label class="btn" for="badgefile">Badge from my image</label><input type="file" id="badgefile" accept="image/*"></div>
       <p class="note">An image badge raises the dark or solid areas of a picture you own, such as your logo.</p>
+      <button id="replace" type="button">Move all badges back onto the letter</button>
       <div class="stack" id="badges"></div>
     </section>
     <section>
@@ -206,13 +237,14 @@ function setStatus(msg,cls){ const s=$("status"); s.textContent=msg; s.className
 const S = {
   letter:"M", lfont:"Abril Fatface", lheight:150, lthick:20, split:false, splitAt:40,
   name:"Madhav", nfont:"Pacifico", nheight:50, nthick:4, ngrow:0.6, nspacing:0, nx:0, ny:-8, nrot:0,
-  colors:{letter:"#c8102e",split:"#1f4fd8",name:"#f4f4f4",pattern:"#16181d",nameback:"#16181d"}, view:"stand", cut:true, cutDepth:2, cutGap:0.2, showName:true, nstyle:"plain", nback:2.5, nbackT:2, nshape:"straight", nbend:35, tmf:"bambu", maxFil:4, attach:true, theme:"none", pattern:"none", patMode:"separate", patBorder:true, borderW:2, patRise:1, patSize:100, patLine:1.2, pseed:7
+  colors:{letter:"#c8102e",split:"#1f4fd8",name:"#f4f4f4",pattern:"#16181d",nameback:"#16181d",cup:"#1f4fd8",cup2:"#f4f4f4"}, view:"stand", cut:true, cutDepth:2, cutGap:0.2, showName:true, nstyle:"plain", nback:2.5, nbackT:2, nshape:"straight", nbend:35, product:"letter", cupShape:"box", cupW:80, cupD:70, cupH:100, cupWall:2.4, cupCells:1, cupRim:true, cupX:0, cupCut:"none", cupColors:"single", cupPlate:true, tmf:"bambu", maxFil:4, attach:true, theme:"none", pattern:"none", patMode:"separate", patBorder:true, borderW:2, patRise:1, patSize:100, patLine:1.2, pseed:7
 };
 const FONT_GROUPS={"Serif and slab": [["Abril Fatface", 400], ["Playfair Display", 900], ["Alfa Slab One", 400], ["Rozha One", 400], ["Ultra", 400], ["Bevan", 400], ["DM Serif Display", 400], ["Merriweather", 900], ["Roboto Slab", 900], ["Arvo", 700], ["Cinzel", 900]], "Bold display": [["Anton", 400], ["Bebas Neue", 400], ["Archivo Black", 400], ["Russo One", 400], ["Righteous", 400], ["Passion One", 700], ["Paytone One", 400], ["Changa One", 400], ["Bowlby One", 400], ["Rubik", 900], ["Poppins", 900], ["Montserrat", 900], ["Bungee", 400]], "Playful": [["Bangers", 400], ["Luckiest Guy", 400], ["Titan One", 400], ["Chewy", 400], ["Lilita One", 400], ["Fredoka", 700], ["Baloo 2", 800], ["Permanent Marker", 400], ["Creepster", 400]], "Script": [["Pacifico", 400], ["Lobster", 400], ["Lobster Two", 700], ["Oleo Script", 700], ["Kaushan Script", 400], ["Courgette", 400], ["Yellowtail", 400], ["Satisfy", 400], ["Cookie", 400], ["Dancing Script", 700], ["Damion", 400], ["Leckerli One", 400], ["Playball", 400], ["Grand Hotel", 400], ["Berkshire Swash", 400], ["Norican", 400], ["Niconne", 400], ["Sriracha", 400], ["Caveat", 700], ["Kalam", 700], ["Great Vibes", 400], ["Sacramento", 400]], "On this computer": [["Georgia", 700], ["Times New Roman", 700], ["Arial Black", 900], ["Impact", 400], ["Brush Script MT", 400], ["Segoe Script", 700], ["Comic Sans MS", 700]]};
+FONT_GROUPS["Indian languages"]=[["Baloo 2",800],["Baloo Tammudu 2",800],["Baloo Thambi 2",800],["Baloo Tamma 2",800],["Baloo Chettan 2",800],["Baloo Da 2",800],["Baloo Bhai 2",800],["Baloo Paaji 2",800],["Baloo Bhaina 2",800]];
 const SYS="On this computer", fontInfo={};
 for(const [g,list] of Object.entries(FONT_GROUPS)) for(const [n,w] of list) fontInfo[n]={weight:w,fallback:g==="Script"?"cursive":g==="Serif and slab"?"serif":"sans-serif",google:g!==SYS};
 const PALETTES=[["#c8102e","#1f4fd8","#f4f4f4"],["#c8102e","#1f4fd8","#f2c230"],["#7fd3d8","#3a8f96","#ffd21f"],["#22252b","#f2c230","#f2c230"],["#5b2a86","#9be564","#9be564"],["#ff8fb1","#f4f4f4","#f4f4f4"]];
-const COLOR_KEYS=[["letter","Letter"],["split","Letter base"],["name","Name"],["nameback","Name back"],["pattern","Pattern"]];
+const COLOR_KEYS=[["letter","Letter"],["split","Letter base"],["name","Name"],["nameback","Name back"],["pattern","Pattern"],["cup","Pen cup"],["cup2","Cup accent"]];
 const PATTERNS=[["none","None"],["web","Web"],["skyline","Skyline"],["dots","Comic dots"],["hex","Honeycomb"],["stripes","Stripes"],["stars","Stars"],["checks","Checks"],["waves","Waves"],["scales","Scales"],["confetti","Confetti"],["pixels","Pixels"],["hearts","Hearts"],["zigzag","Zigzag"],["bricks","Bricks"],["sash","Sash"],["pinstripes","Pinstripes"]];
 // original themes: [letter, base, name, pattern] colours, a surface pattern, and badges as [shape, colour]
 const THEMES={
@@ -253,6 +285,7 @@ const THEMES={
   garden: {name:"Garden",    colors:["#7fd3d8","#3a8f96","#ffd21f","#ffffff"],pattern:"dots",   badges:[["Flower","#ff8fb1"],["Butterfly","#ffd21f"],["Cloud","#ffffff"]]}
 };
 const FIELDS={
+  "fields-cup":[["cupW","Cup width","mm",30,200,1],["cupD","Cup depth","mm",30,200,1],["cupH","Cup height","mm",30,250,1],["cupWall","Wall","mm",1.2,6,0.2],["cupCells","Compartments","",1,4,1],["cupX","Shift left/right","mm",-100,100,1]],
   "fields-letter":[["lheight","Height","mm",40,400,1],["lthick","Thickness","mm",2,60,1]],
   "fields-split":[["splitAt","Split height","%",10,90,1]],
   "fields-pattern":[["patRise","Pattern rise","mm",0.2,5,0.1],["patSize","Pattern size","%",50,250,5],["patLine","Line width","mm",0.6,4,0.1]],
@@ -292,14 +325,28 @@ PALETTES.forEach((p,i)=>{
 });
 function fillFonts(sel,order,cur){ for(const g of order){ const og=document.createElement("optgroup"); og.label=g;
   for(const f of FONT_GROUPS[g]){ const o=document.createElement("option"); o.textContent=f[0]; og.appendChild(o);} sel.appendChild(og);} sel.value=cur; }
-fillFonts($("lfont"),["Serif and slab","Bold display","Playful","Script",SYS],S.lfont);
-fillFonts($("nfont"),["Script","Playful","Bold display","Serif and slab",SYS],S.nfont);
+fillFonts($("lfont"),["Serif and slab","Bold display","Playful","Script","Indian languages",SYS],S.lfont);
+fillFonts($("nfont"),["Script","Playful","Bold display","Serif and slab","Indian languages",SYS],S.nfont);
 $("lfont").addEventListener("change",e=>{S.lfont=e.target.value; schedule();});
 $("nfont").addEventListener("change",e=>{S.nfont=e.target.value; schedule();});
 $("letter").addEventListener("input",e=>{S.letter=e.target.value; schedule();});
 $("name").addEventListener("input",e=>{S.name=e.target.value; schedule();});
 $("split").addEventListener("change",e=>{S.split=e.target.checked; $("fields-split").hidden=!S.split; schedule();});
-$("price").addEventListener("input",updateStats);
+for(const id of ["price","othercost","margin","bed"]) $(id).addEventListener("input",updateStats);
+$("fitname").addEventListener("click",()=>{ const p=P.nameBack||P.name; if(!p||!bounds.w) return; p.geo.computeBoundingBox();
+  const w=p.geo.boundingBox.getSize(new THREE.Vector3()).x; S.nheight=Math.min(200,Math.max(10,Math.round(S.nheight*bounds.w*1.15/w))); S.nx=0;
+  $("f-nheight").value=S.nheight; $("f-nx").value=0; schedule(); });
+document.querySelectorAll("#products button").forEach(b=>b.addEventListener("click",()=>{
+  const k=b.dataset.k; if(k===S.product) return; S.product=k;
+  document.querySelectorAll("#products button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.k===k)); $("penopts").hidden=k!=="pen";
+  // a pen stand wants a thinner letter plate; a free-standing letter wants a thick one
+  if(k==="pen"&&S.lthick>12){ S.lthick=8; $("f-lthick").value=8; } if(k==="letter"&&S.lthick<12){ S.lthick=20; $("f-lthick").value=20; }
+  schedule(); setTimeout(()=>frame(true),400); }));
+$("cupshape").addEventListener("change",e=>{ S.cupShape=e.target.value; schedule(); });
+$("cupcut").addEventListener("change",e=>{ S.cupCut=e.target.value; schedule(); });
+$("cupcolors").addEventListener("change",e=>{ S.cupColors=e.target.value; schedule(); });
+$("cupplate").addEventListener("change",e=>{ S.cupPlate=e.target.checked; schedule(); });
+$("cuprim").addEventListener("change",e=>{ S.cupRim=e.target.checked; schedule(); });
 $("tmf").addEventListener("change",e=>{ S.tmf=e.target.value; updateStats(); });
 $("maxfil").addEventListener("change",e=>{ S.maxFil=parseInt(e.target.value)||4; updateStats(); });
 $("attach").addEventListener("change",e=>{ S.attach=e.target.checked; updateStats(); });
@@ -320,8 +367,8 @@ for(const [k,t] of Object.entries(THEMES)){
 }
 function applyTheme(k){
   const t=THEMES[k]; S.theme=k;
-  document.querySelectorAll(".themes button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.k===k));
-  if(t.colors){ const [l,b2,n,pt]=t.colors, set={letter:l,split:b2,name:n,pattern:pt,nameback:[pt,b2].find(c=>c.toLowerCase()!==n.toLowerCase())||(parseInt(n.slice(1,3),16)+parseInt(n.slice(3,5),16)+parseInt(n.slice(5,7),16)>380?"#16181d":"#ffffff")};
+  document.querySelectorAll("#themes button, #themes-cricket button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.k===k));
+  if(t.colors){ const [l,b2,n,pt]=t.colors, set={letter:l,split:b2,name:n,pattern:pt,cup:b2,cup2:[pt,n,l].find(c=>c.toLowerCase()!==b2.toLowerCase())||"#f4f4f4",nameback:[pt,b2].find(c=>c.toLowerCase()!==n.toLowerCase())||(parseInt(n.slice(1,3),16)+parseInt(n.slice(3,5),16)+parseInt(n.slice(5,7),16)>380?"#16181d":"#ffffff")};
     for(const c in set){ S.colors[c]=set[c]; $("c-"+c).value=set[c]; } }
   setPattern(t.pattern);
   for(let i=badges.length-1;i>=0;i--) if(badges[i].theme){ drop(badges[i].part); badges.splice(i,1); }
@@ -651,7 +698,8 @@ function trace(canvas,ppm){
     const mmPts=simplify(pts,0.4).map(p=>[(p[0]-1-W/2)/ppm,(H/2-(p[1]-1))/ppm]);
     for(let changed=true;changed&&mmPts.length>3;){ changed=false; // drop collinear points so caps and walls share every vertex
       for(let i=0;i<mmPts.length&&mmPts.length>3;i++){ const n=mmPts.length,a=mmPts[(i+n-1)%n],b=mmPts[i],c=mmPts[(i+1)%n];
-        if(Math.abs((b[1]-a[1])*(c[0]-b[0])-(b[0]-a[0])*(c[1]-b[1]))<1e-7||(a[0]===b[0]&&a[1]===b[1])){ mmPts.splice(i,1); i--; changed=true; } } }
+        // drop a point lying within 0.01 mm of the line through its neighbours: such slivers make the triangulator skip a vertex
+        if(Math.abs((b[1]-a[1])*(c[0]-b[0])-(b[0]-a[0])*(c[1]-b[1]))<0.01*Math.hypot(c[0]-a[0],c[1]-a[1])+1e-7||(a[0]===b[0]&&a[1]===b[1])){ mmPts.splice(i,1); i--; changed=true; } } }
     if(mmPts.length<3) continue;
     // 2-micron jitter keeps separate holes from lining up exactly, which breaks triangulation
     for(const q of mmPts){ q[0]+=(jit()-0.5)*0.004; q[1]+=(jit()-0.5)*0.004; }
@@ -736,7 +784,7 @@ $("vflat").addEventListener("click",()=>setView("flat"));
 
 /* ---------------- generate ---------------- */
 // a part: {kind,name,colorKey|color,geo,mesh,key}
-let P={letter:[],name:null}, bounds={w:0,h:0,t:0}, timer=0, runId=0, lastFit=0;
+let P={letter:[],name:null,cup:[]}, bounds={w:0,h:0,t:0}, timer=0, runId=0, lastFit=0;
 function schedule(){ clearTimeout(timer); timer=setTimeout(generate,140); }
 function meshVolume(pos){ let v=0; for(let i=0;i<pos.length;i+=9){
   const ax=pos[i],ay=pos[i+1],az=pos[i+2],bx=pos[i+3],by=pos[i+4],bz=pos[i+5],cx=pos[i+6],cy=pos[i+7],cz=pos[i+8];
@@ -747,21 +795,78 @@ function mergeGeo(list){ list=list.filter(Boolean); if(!list.length) return null
   let n=0; for(const g of list) n+=g.attributes.position.array.length;
   const pos=new Float32Array(n); let o=0; for(const g of list){ pos.set(g.attributes.position.array,o); o+=g.attributes.position.array.length; g.dispose(); }
   const out=new THREE.BufferGeometry(); out.setAttribute("position",new THREE.BufferAttribute(pos,3)); out.computeVertexNormals(); return out; }
+// pen cup, built upright as it prints: x across, y from the flat front (0) to the back, z up from the floor.
+// It is a stack of slabs: each slab has one cross-section (floor, wall, wall with gaps, rim) and one colour.
+// Returns {main, accent} geometries; accent is null for a one-colour cup.
+function buildCup(){
+  const W=S.cupW, D=S.cupD, H=S.cupH, t=S.cupWall, ppm=8;
+  // optional base plate: the floor reaches forward under the letter, so the letter stands on it and lines itself up
+  const plateW=S.cupPlate?Math.max(W,Math.min(bounds.w+6,400)):0, plateF=S.cupPlate?S.lthick+2:0, pad=Math.max(4,plateF+4), cw=Math.ceil((Math.max(W,plateW)+2*pad)*ppm), ch=Math.ceil((D+2*pad)*ppm), cx=cw/2, cy=ch/2;
+  const outline=(u,inset)=>{ const w=(W-2*inset)*ppm, d=(D-2*inset)*ppm; u.beginPath();
+    if(S.cupShape==="box"){ const r=Math.max(0.5,Math.min(10-inset,W/2-inset,D/2-inset))*ppm, x=cx-w/2, y=cy-d/2;
+      u.moveTo(x+r,y); u.arcTo(x+w,y,x+w,y+d,r); u.arcTo(x+w,y+d,x,y+d,r); u.arcTo(x,y+d,x,y,r); u.arcTo(x,y,x+w,y,r); u.closePath(); }
+    else if(S.cupShape==="hex"){ for(let k=0;k<6;k++){ const a=Math.PI/3*k; u.lineTo(cx+w/2*Math.cos(a),cy+d/2*Math.sin(a)/Math.sin(Math.PI/3)); } u.closePath(); }
+    else { u.ellipse(cx,cy,w/2,d/2,0,0,7); if(!inset){ u.rect(cx-w*0.3,cy,w*0.6,d/2); } } // round cup keeps a flat pad at the front for gluing
+    u.fill(); };
+  const mk=()=>{ const c=mkCanvas(cw,ch), u=c.getContext("2d"); u.fillStyle=u.strokeStyle="#fff"; return [c,u]; };
+  const cols=Math.max(6,Math.round(2*(W+D)/13)), frontHalf=Math.atan2((S.cupShape==="box"?W/2:S.cupShape==="hex"?W/4:W*0.3),D/2)+Math.PI/cols;
+  // cross-section: grow>0 widens it (rim); gap = {st, hw} cuts a window in every column except across the flat front
+  const section=(kind,gap)=>{ const [c,u]=mk(); outline(u,0);
+    if(kind==="floor"){ if(plateW){ const x=cx-plateW*ppm/2, y=cy+D*ppm/2-Math.min(8,D/3)*ppm, w=plateW*ppm, h=(Math.min(8,D/3)+plateF)*ppm, r=Math.min(3*ppm,h/2);
+        u.beginPath(); u.moveTo(x+r,y); u.arcTo(x+w,y,x+w,y+h,r); u.arcTo(x+w,y+h,x,y+h,r); u.arcTo(x,y+h,x,y,r); u.arcTo(x,y,x+w,y,r); u.closePath(); u.fill(); } return c; }
+    if(kind==="rim"){ u.lineWidth=2*1.2*ppm; u.lineJoin="round"; u.stroke(); u.clearRect(0,cy+D/2*ppm,cw,ch); } // the rim never sticks out past the flat front
+    u.globalCompositeOperation="destination-out"; outline(u,t); u.globalCompositeOperation="source-over";
+    if(gap){ const [g,gu]=mk(), R=cw+ch, da=2*Math.PI/cols;
+      for(let k=0;k<cols;k++){ const a=k*da+(gap.st?da/2:0); let off=Math.abs(((a-Math.PI/2)%(2*Math.PI)+3*Math.PI)%(2*Math.PI)-Math.PI); if(off<frontHalf) continue;
+        gu.beginPath(); gu.moveTo(cx,cy); gu.lineTo(cx+R*Math.cos(a-da*gap.hw),cy+R*Math.sin(a-da*gap.hw)); gu.lineTo(cx+R*Math.cos(a+da*gap.hw),cy+R*Math.sin(a+da*gap.hw)); gu.closePath(); gu.fill(); }
+      u.globalCompositeOperation="destination-out"; u.drawImage(g,0,0); u.globalCompositeOperation="source-over"; }
+    const n=Math.round(S.cupCells);
+    if(n>1){ const [m,mu]=mk(); outline(mu,t*0.5); mu.globalCompositeOperation="source-in";
+      for(let k=1;k<n;k++) mu.fillRect(cx-W*ppm/2+W*ppm*k/n-t*ppm/2,0,t*ppm,ch); u.drawImage(m,0,0); } // dividers stay solid
+    return c; };
+  const rimH=S.cupRim?Math.min(5,H*0.2):0, z0=t+6, z1=H-rimH-6, cut=S.cupCut, q=v=>Math.round(v*50)/50;
+  const rows=(period,hole)=>{ const r=[]; for(let a=z0;a+hole<=z1+1e-6;a+=period) r.push(a); return r; };
+  const gapAt=z=>{ if(cut==="none"||z<z0||z>z1||z1-z0<8) return null;
+    if(cut==="slots") return {st:0,hw:0.28};
+    const [period,hole]=cut==="windows"?[15,10]:cut==="diamonds"?[16,16]:[14,10], r=Math.floor((z-z0)/period), u=z-z0-r*period;
+    if(u>hole||z0+r*period+hole>z1+1e-6) return null;
+    const f=u/hole, hw=cut==="windows"?0.3:cut==="diamonds"?0.42*(1-Math.abs(2*f-1)):0.36*Math.sqrt(Math.max(0,1-(2*f-1)*(2*f-1)));
+    return hw<0.05?null:{st:r%2,hw:q(hw)}; };
+  const colourAt=z=>{ const m=S.cupColors; if(m==="single") return 0;
+    if(m==="base") return z<H*0.25||z>H-Math.max(rimH,4)?1:0;
+    if(m==="bands") return z>H/3&&z<2*H/3?1:0;
+    return Math.floor(z/8)%2; };
+  // every height where the cross-section or the colour can change
+  const br=new Set([0,t,H-rimH,H]);
+  if(cut!=="none"&&z1-z0>=8){ br.add(z0); br.add(z1);
+    if(cut==="windows") for(const a of rows(15,10)){ br.add(a); br.add(a+10); }
+    if(cut==="diamonds"||cut==="circles") for(let z=z0;z<z1;z+=1) br.add(z); }
+  if(S.cupColors==="base"){ br.add(H*0.25); br.add(H-Math.max(rimH,4)); } if(S.cupColors==="bands"){ br.add(H/3); br.add(2*H/3); }
+  if(S.cupColors==="stripes") for(let z=8;z<H;z+=8) br.add(z);
+  const zs=[...br].filter(z=>z>=0&&z<=H).sort((a,b)=>a-b), slabs=[];
+  for(let k=0;k+1<zs.length;k++){ const a=zs[k], b=zs[k+1]; if(b-a<0.02) continue; const zm=(a+b)/2, gap=gapAt(zm);
+    const kind=zm<t?"floor":zm>H-rimH?"rim":"wall", key=kind+(gap?":"+gap.st+":"+gap.hw:""), col=colourAt(zm), last=slabs[slabs.length-1];
+    if(last&&last.key===key&&last.col===col) last.b=b; else slabs.push({a,b,key,kind,gap,col}); }
+  const cache=new Map(), geos=[[],[]];
+  for(const sl of slabs){ if(!cache.has(sl.key)) cache.set(sl.key,trace(section(sl.kind,sl.gap),ppm)); geos[sl.col].push(extrude(cache.get(sl.key),sl.a,sl.b)); }
+  const fin=list=>{ const g=mergeGeo(list); if(g) g.translate(0,D/2,0); return g; }; // canvas bottom is the front, so the front lands on y=0
+  return {main:fin(geos[0]),accent:fin(geos[1])};
+}
 function drop(p){ if(!p) return; root.remove(p.mesh); p.geo.dispose(); p.mesh.material.dispose(); }
 // web fonts load one at a time, when first picked, so one bad name cannot block the rest
 const fontLinks={};
 function fontReady(family){ return [...document.fonts].some(f=>f.family.replace(/["']/g,"")===family&&f.status==="loaded"); }
-async function ensureFont(family){ const i=fontInfo[family]; if(!i||!i.google||!document.fonts) return true;
+async function ensureFont(family,text){ const i=fontInfo[family]; if(!i||!i.google||!document.fonts) return true;
   if(!fontLinks[family]) fontLinks[family]=new Promise(res=>{ const l=document.createElement("link"); l.rel="stylesheet";
     l.href="https://fonts.googleapis.com/css2?family="+family.replace(/ /g,"+")+(i.weight!==400?":wght@"+i.weight:"")+"&display=swap";
     l.onload=()=>res(true); l.onerror=()=>res(false); setTimeout(()=>res(false),5000); document.head.appendChild(l); });
   await fontLinks[family];
-  try{ await Promise.race([document.fonts.load(`${i.weight} 40px "${family}"`),new Promise(r=>setTimeout(r,4000))]); }catch(e){}
+  try{ await Promise.race([document.fonts.load(`${i.weight} 40px "${family}"`,text||"A"),new Promise(r=>setTimeout(r,4000))]); }catch(e){}
   return fontReady(family); }
 
 async function generate(){
   const id=++runId;
-  const ok=await Promise.all([ensureFont(S.lfont),ensureFont(S.nfont)]);
+  const ok=await Promise.all([ensureFont(S.lfont,S.letter),ensureFont(S.nfont,S.name)]);
   if(id!==runId) return;
   placeNewBadges();
   const missing=[S.lfont,S.nfont].filter((f,k)=>!ok[k]).join(" and ");
@@ -846,19 +951,28 @@ async function generate(){
       const M=badgeMask(b), g=M.base?mergeGeo([extrude(trace(M.base,M.ppm),0,b.thick*0.5),extrude(trace(M.canvas,M.ppm),b.thick*0.5,b.thick)]):extrude(trace(M.canvas,M.ppm),0,b.thick);
       if(g) b.part=mkPart(b.label,b.color,g); }
   }
-  place(); frame(false); updateStats();
+  // pen cup
+  const ckey=S.product==="pen"?JSON.stringify([S.cupShape,S.cupW,S.cupD,S.cupH,S.cupWall,S.cupCells,S.cupRim,S.cupCut,S.cupColors,S.cupPlate&&[S.lthick,Math.round(bounds.w)]]):"";
+  if(P.ckey!==ckey){ for(const c of P.cup){ drop(c); c.printGeo.dispose(); } P.cup=[]; P.ckey=ckey;
+    if(ckey){ const built=buildCup();
+      for(const [pg,name,key] of [[built.main,"Pen cup","cup"],[built.accent,"Pen cup accent","cup2"]]) if(pg){
+        const vg=pg.clone(); vg.rotateX(-Math.PI/2); // upright cup: its height runs along the letter's height, its body sits behind the letter
+        const part=mkPart(name,S.colors[key],vg); part.colorKey=key; part.printGeo=pg; P.cup.push(part); } } }
+  place(); frame(false); updateStats(); remember();
 }
 function place(){
   const T=S.lthick;
   for(const p of P.letter) p.mesh.position.z=p.onFace?T:0;
+  const lift=P.cup.length&&S.cupPlate?S.cupWall:0; // with a base plate the letter stands on the plate, so the cup sits one floor-thickness lower
+  for(const c of P.cup) c.mesh.position.set(S.cupX,-bounds.h/2-lift,0);
   const nz=S.cut?T-Math.min(S.cutDepth,Math.max(0.2,T-1)):T;
   if(P.nameBack){ P.nameBack.mesh.visible=S.showName; P.nameBack.mesh.position.set(S.nx,S.ny,nz); P.nameBack.mesh.rotation.z=S.nrot*Math.PI/180; }
   if(P.name){ P.name.mesh.visible=S.showName; P.name.mesh.position.set(S.nx,S.ny,nz+(P.nameBack?S.nbackT:0)); P.name.mesh.rotation.z=S.nrot*Math.PI/180; }
   for(const b of badges) if(b.part){ b.part.mesh.position.set(b.x,b.y,T+b.lift); b.part.mesh.rotation.z=b.rot*Math.PI/180; b.part.mesh.material.color.set(b.color); }
   for(const m of models) applyModel(m);
-  if(S.view==="stand"){ root.rotation.x=Math.PI/2; root.position.set(0,T/2,bounds.h/2); } else { root.rotation.x=0; root.position.set(0,0,0); }
+  if(S.view==="stand"){ root.rotation.x=Math.PI/2; root.position.set(0,T/2,bounds.h/2+lift); } else { root.rotation.x=0; root.position.set(0,0,0); }
   const tip=bounds.h/Math.max(T,1);
-  $("standnote").textContent=bounds.w&&tip>10?`At ${T} mm thick this ${bounds.h.toFixed(0)} mm letter may tip over. Try ${Math.ceil(bounds.h/8)} mm or more.`:"";
+  $("standnote").textContent=bounds.w&&tip>10&&S.product!=="pen"?`At ${T} mm thick this ${bounds.h.toFixed(0)} mm letter may tip over. Try ${Math.ceil(bounds.h/8)} mm or more.`:"";
   $("dims").textContent=bounds.w?`Letter ${bounds.w.toFixed(0)} × ${bounds.h.toFixed(0)} × ${T.toFixed(0)} mm`:"";
   dirty=true;
 }
@@ -868,10 +982,28 @@ function frame(force){
     orbit.t.set(0,0,S.view==="stand"?bounds.h/2:S.lthick/2); }
   placeCamera();
 }
-function recolor(){ for(const p of [...P.letter,P.name,P.nameBack]) if(p) p.mesh.material.color.set(S.colors[p.colorKey]); updateStats(); dirty=true; }
+// plain-language warnings about things that commonly go wrong on the printer
+function runChecks(list,plan){
+  const bed=parseFloat($("bed").value)||256, out=[], T=S.lthick, fits=(w,h)=>Math.max(w,h)<=bed*1.38&&Math.min(w,h)<=bed; // a long part may still fit corner to corner
+  if(bounds.w&&!fits(bounds.w,bounds.h)) out.push(["bad",`The letter is ${bounds.w.toFixed(0)} × ${bounds.h.toFixed(0)} mm, larger than a ${bed} mm bed. Lower its height.`]);
+  const nb=P.nameBack||P.name; if(nb){ nb.geo.computeBoundingBox(); const z=nb.geo.boundingBox.getSize(new THREE.Vector3());
+    if(!fits(z.x,z.y)) out.push(["bad",`The name is ${z.x.toFixed(0)} mm long, too long for a ${bed} mm bed. Lower its height or shorten it.`]);
+    else if(z.x>bed) out.push(["warn",`The name is ${z.x.toFixed(0)} mm long. It only fits the bed placed corner to corner.`]); }
+  if(P.cup.length&&(Math.max(S.cupW,S.cupD,S.cupPlate?bounds.w+6:0)>bed*1.38||Math.max(S.cupW,S.cupD)>bed||S.cupH>bed)) out.push(["bad",`The pen cup is larger than the printer's ${bed} mm build space.`]);
+  if(P.name&&!P.nameBack&&P.pieces>1) out.push(["warn",`The name prints as ${P.pieces} loose pieces. The Outline name style joins them.`]);
+  if(P.nameBack&&P.backPieces>1) out.push(["warn",`The name's back layer is in ${P.backPieces} pieces. Raise its width.`]);
+  if(S.product!=="pen"&&bounds.h/Math.max(T,1)>10) out.push(["warn",`At ${T} mm thick the letter may tip over. Try ${Math.ceil(bounds.h/8)} mm or more.`]);
+  if(S.cut&&P.name&&Math.min(S.cutDepth,T-1)>=T-1.5) out.push(["warn","The name slot goes almost through the letter. Lower the slot depth."]);
+  if(plan&&plan.merged.length) out.push(["warn",`${plan.merged.length} colour${plan.merged.length>1?"s share":" shares"} a filament slot with another because the design uses more colours than your printer has filaments.`]);
+  const risky=models.filter(m=>LICENCES.find(l=>l[0]===m.licence)[2]!=="good").length;
+  if(risky) out.push(["warn",`${risky} imported model${risky>1?"s are":" is"} not marked as cleared for selling.`]);
+  $("checks").innerHTML=out.length?out.map(([c,t])=>`<p class="note" style="margin:0"><span class="pill ${c}">${c==="bad"?"Fix":"Check"}</span> ${t}</p>`).join(""):'<p class="note" style="margin:0"><span class="pill good">OK</span> No problems found by these checks.</p>';
+}
+function recolor(){ for(const p of [...P.letter,P.name,P.nameBack,...P.cup]) if(p) p.mesh.material.color.set(S.colors[p.colorKey]); updateStats(); dirty=true; }
 function allParts(){ // everything that exports, each with flat print geometry
   const out=[];
   for(const p of P.letter) out.push({name:p.name,color:S.colors[p.colorKey],geo:p.geo,vol:p.vol});
+  for(const c of P.cup) out.push({name:c.name,color:S.colors[c.colorKey],geo:c.printGeo,vol:c.vol});
   if(P.nameBack) out.push({name:"Name back",color:S.colors.nameback,geo:P.nameBack.geo,vol:P.nameBack.vol});
   if(P.name) out.push({name:"Name "+S.name.trim(),color:S.colors.name,geo:P.name.geo,vol:P.name.vol});
   badges.forEach(b=>{ if(b.part) out.push({name:b.label,color:b.color,geo:b.part.geo,vol:b.part.vol}); });
@@ -887,7 +1019,9 @@ function updateStats(){
   $("slots").innerHTML=S.tmf==="bambu"&&sl.length?`<p class="note"><b>Filament slots in the 3MF.</b> Bambu Studio shows each part in the colour of its filament slot. Have at least <b>${sl.length} filament${sl.length>1?"s":""}</b> in the project before you open the file, then set these colours:</p><table>${sl.map((c,k)=>`<tr><td>Filament ${k+1}</td><td><span class="sw" style="background:${c}"></span>${c}</td><td>${list.filter(p=>plan.of[p.color.toLowerCase()]===k+1).map(p=>esc(p.name)).join(", ")||"painted areas"}</td></tr>`).join("")}</table>`
     +(plan.merged.length?`<p class="note warn">${plan.merged.length} colour${plan.merged.length>1?"s were":" was"} moved to the nearest slot to fit ${sl.length} filaments: ${plan.merged.map(m=>`<span class="sw" style="background:${m.from}"></span>to Filament ${m.to}`).join(", ")}. Raise "Filaments in my printer" to keep them apart.</p>`:""):"";
   const price=parseFloat($("price").value)||0;
-  $("cost").innerHTML=list.length?`<b>${list.length} parts, ${tot.toFixed(0)} g</b> if printed solid in PLA, about <b>${(tot/1000*price).toFixed(0)}</b> in filament. With 15% infill expect roughly a third of that.`:"Type a letter to begin.";
+  const other=parseFloat($("othercost").value)||0, margin=parseFloat($("margin").value)||0, mat=tot*0.4/1000*price, sell=Math.ceil((mat+other)*(1+margin/100)/10)*10;
+  $("cost").innerHTML=list.length?`<b>${list.length} parts, ${tot.toFixed(0)} g</b> if printed solid in PLA. At about 15% infill expect roughly ${(tot*0.4).toFixed(0)} g, or <b>${mat.toFixed(0)}</b> in filament. With your other costs and margin, a selling price near <b>${sell}</b>. This is a rough guide; your slicer gives the real weight and time.`:"Type a letter to begin.";
+  runChecks(list,plan);
 }
 
 /* ---------------- badges ---------------- */
@@ -942,6 +1076,7 @@ function topSpots(){
   for(let i=0;i<=W;i++){ const on=i<W&&D[i*4+3]>127; if(on&&st<0) st=i; if(!on&&st>=0){ runs.push([(st+i)/2,i-st]); st=-1; } }
   runs.sort((a,b)=>b[1]-a[1]); return runs.length?runs.map(r=>({x:(r[0]-W/2)/M.ppm,w:r[1]/M.ppm})):[{x:0,w:bounds.w}];
 }
+$("replace").addEventListener("click",()=>{ if(!badges.length) return; for(const b of badges){ b.needsSpot=true; b.x=1e6; } generate(); });
 $("addbadge").addEventListener("click",()=>addBadge($("badgeshape").value));
 $("badgefile").addEventListener("change",e=>{
   const f=e.target.files[0]; if(!f) return;
@@ -1246,6 +1381,7 @@ function exportGroups(){
     if(nm.length) groups.push(makeGroup("Name "+S.name.trim(),nm));
   } else for(const e of [...letter,...nm]) groups.push(makeGroup(e.name,[{...e,matrix:null}]));
   for(const e of bad) groups.push(makeGroup(e.name,[{...e,matrix:null}]));
+  if(P.cup.length) groups.push(makeGroup("Pen cup",P.cup.map(c=>({name:c.name,color:S.colors[c.colorKey],geo:c.printGeo})))); // upright, opening up; colour bands stay together
   for(const m of models){ const sc=m.scale/100; for(const q of modelParts(m)) groups.push(makeGroup(q.name,[{...q,scale:sc}])); }
   return groups;
 }
@@ -1342,10 +1478,10 @@ function licenceLog(list){
     lines.push(`- ${m.name}`,`  licence: ${l[1]} -> ${l[3]}`,`  source: ${m.source||"not recorded"}`,`  creator: ${m.creator||"not recorded"}`); } }
   return lines.join("\r\n");
 }
-function fileStem(){ const clean=s=>s.trim().replace(/[^\w-]+/g,"_"); return [clean(S.letter),clean(S.name)].filter(Boolean).join("-")||"letter"; }
+function fileStem(){ const clean=s=>s.trim().replace(/[^\p{L}\p{M}\p{N}_-]+/gu,"_"); return [clean(S.letter),clean(S.name)].filter(Boolean).join("-")||"letter"; }
 function mergePos(parts){ let n=0; for(const q of parts) n+=q.pos.length; const a=new Float32Array(n); let o=0; for(const q of parts){ a.set(q.pos,o); o+=q.pos.length; } return a; }
 async function buildZip(){ // everything: the 3MF, one STL per object, the assembled multi-colour 3MF, the licence log
-  const groups=exportGroups(), list=groups.flatMap(g=>g.parts), enc=new TextEncoder(), clean=s=>s.trim().replace(/[^\w-]+/g,"_"), stem=fileStem();
+  const groups=exportGroups(), list=groups.flatMap(g=>g.parts), enc=new TextEncoder(), clean=s=>s.trim().replace(/[^\p{L}\p{M}\p{N}_-]+/gu,"_"), stem=fileStem();
   const files=[{name:stem+"-separate-parts.3mf",data:new Uint8Array(await build3MF(groups).arrayBuffer())}], used={};
   groups.forEach((g,i)=>{ let n=clean(g.name)||"part"; used[n]=(used[n]||0)+1; if(used[n]>1) n+="_"+used[n];
     files.push({name:`stl/${String(i+1).padStart(2,"0")}-${n}.stl`,data:stlBinary(mergePos(g.parts))}); });
@@ -1382,8 +1518,49 @@ $("export").addEventListener("click",()=>runExport(false));
 $("exportall").addEventListener("click",()=>runExport(true));
 getCap().then(c=>{ if(c) $("exportnote").innerHTML+=" It arrives inside a small <b>.zip</b>, because this viewer cannot save a .3mf file directly. Unzip it once and open the .3mf in your slicer."; });
 
-window.__forge={S,slotPlan,exportGroups,assembledGroup,buildBambu3MF,buildStd3MF,filamentSlots,build3MFOnly,assembledParts,applyTheme,models,badges,exportParts,buildZip,generate,parse3MF,build3MF,parseSTL,stlBinary,addBadge,get P(){return P;}};
-resize(); setView("stand"); generate();
+/* ---------------- designs: save, load, remember ---------------- */
+const DEFAULTS=JSON.parse(JSON.stringify(S)), STORE="themed-letter-forge-design";
+function serialise(){ return {app:"themed-letter-forge",v:1,S:JSON.parse(JSON.stringify(S)),
+  badges:badges.filter(b=>!b.img).map(b=>({shape:b.shape,x:b.x,y:b.y,size:b.size,rot:b.rot,thick:b.thick,lift:b.lift,color:b.color,theme:!!b.theme}))}; }
+function syncUI(){ // push the state back into every control
+  for(const list of Object.values(FIELDS)) for(const [k] of list) $("f-"+k).value=S[k];
+  for(const [k] of NAME_SLIDERS) $("f-"+k).value=S[k];
+  for(const [k] of COLOR_KEYS) $("c-"+k).value=S.colors[k];
+  $("letter").value=S.letter; $("name").value=S.name;
+  for(const [id,k] of [["lfont","lfont"],["nfont","nfont"]]){ if(![...$(id).options].some(o=>o.value===S[k])) S[k]=DEFAULTS[k]; $(id).value=S[k]; }
+  for(const [id,k] of [["pattern","pattern"],["patmode","patMode"],["nshape","nshape"],["cupshape","cupShape"],["cupcut","cupCut"],["cupcolors","cupColors"],["tmf","tmf"],["maxfil","maxFil"]]) $(id).value=S[k];
+  for(const [id,k] of [["split","split"],["cut","cut"],["patborder","patBorder"],["cuprim","cupRim"],["cupplate","cupPlate"],["attach","attach"]]) $(id).checked=!!S[k];
+  const press=(sel,v)=>document.querySelectorAll(sel).forEach(x=>x.setAttribute("aria-pressed",x.dataset.k===v));
+  press("#themes button, #themes-cricket button",S.theme); press("#products button",S.product); press("#nstyles button",S.nstyle);
+  $("fields-split").hidden=!S.split; $("fields-cut").hidden=$("cutnote").hidden=!S.cut; $("patopts").hidden=S.pattern==="none";
+  $("fields-nback").hidden=S.nstyle==="plain"; $("fields-nbend").hidden=S.nshape==="straight"; $("penopts").hidden=S.product!=="pen";
+  $("vname").setAttribute("aria-pressed",S.showName); $("vname").textContent=S.showName?"Name shown":"Name hidden";
+}
+function applyDesign(d){
+  if(!d||typeof d.S!=="object") throw new Error("not a design file");
+  for(const k of Object.keys(DEFAULTS)){ const v=d.S[k]; if(k==="colors"){ if(v&&typeof v==="object") for(const c of Object.keys(DEFAULTS.colors)) if(/^#[0-9a-f]{6}$/i.test(v[c])) S.colors[c]=v[c]; }
+    else if(typeof v===typeof DEFAULTS[k]) S[k]=v; }
+  if(!THEMES[S.theme]) S.theme="none";
+  for(const b of badges) drop(b.part); badges.length=0; badgeN=0;
+  for(const b of Array.isArray(d.badges)?d.badges:[]) if(BADGES.includes(b.shape)){ const n=++badgeN;
+    badges.push({id:n,shape:b.shape,label:`Badge ${n} ${b.shape}`,imgId:0,size:+b.size||20,thick:+b.thick||3,lift:+b.lift||0,rot:+b.rot||0,x:+b.x||0,y:+b.y||0,color:/^#[0-9a-f]{6}$/i.test(b.color)?b.color:"#f2c230",theme:!!b.theme}); }
+  syncUI(); renderBadges(); setView(S.view); generate();
+}
+function remember(){ try{ localStorage.setItem(STORE,JSON.stringify(serialise())); }catch(e){} }
+$("savedesign").addEventListener("click",async()=>{
+  try{ const name=fileStem()+"-design.json", data=JSON.stringify(serialise(),null,1), cap=await getCap();
+    if(cap) await cap.save({filename:name,data}); else anchorSave(name,new Blob([data],{type:"application/json"})); setStatus(`Saved ${name}.`,"good");
+  }catch(err){ setStatus(err&&err.code==="declined"?"Download cancelled.":"The design could not be saved. Try again.","bad"); } });
+$("loadfile").addEventListener("change",async e=>{ const f=e.target.files[0]; if(!f) return;
+  try{ applyDesign(JSON.parse(await f.text())); setStatus(`Loaded ${f.name}. Add any imported models again.`,"good"); }
+  catch(err){ setStatus("That file is not a design saved from this app.","bad"); } e.target.value=""; });
+$("newdesign").addEventListener("click",()=>{ for(const m of models.splice(0)){ root.remove(m.mesh); m.geo.dispose(); } renderModels();
+  applyDesign({S:DEFAULTS,badges:[]}); setStatus("Started a new design.","good"); });
+window.__forge={S,serialise,applyDesign,slotPlan,exportGroups,assembledGroup,buildBambu3MF,buildStd3MF,filamentSlots,build3MFOnly,assembledParts,applyTheme,models,badges,exportParts,buildZip,generate,parse3MF,build3MF,parseSTL,stlBinary,addBadge,get P(){return P;}};
+resize();
+let restored=false;
+try{ const saved=localStorage.getItem(STORE); if(saved){ applyDesign(JSON.parse(saved)); restored=true; } }catch(e){ try{ localStorage.removeItem(STORE); }catch(e2){} }
+if(!restored){ setView("stand"); generate(); }
 </script>
 </body>
 </html>
