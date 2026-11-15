@@ -161,6 +161,7 @@ input[type=file]{display:none}
       <button class="primary" id="export" type="button">Download 3MF with separate parts</button>
       <div class="row"><button id="exportall" type="button">Everything (STL files too)</button><button id="exportpng" type="button">Picture (.png)</button></div>
       <label class="f" style="grid-template-columns:1fr 170px">3MF made for <select id="tmf"><option value="bambu">Bambu Studio / Orca</option><option value="standard">Other slicers</option></select></label>
+      <label class="f" style="grid-template-columns:1fr 170px">Filaments in my printer <select id="maxfil"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>8</option><option>12</option><option>16</option></select></label>
       <label class="chk"><input type="checkbox" id="attach" checked> Keep the surface design attached to the letter and name</label>
       <p id="status" role="status"></p>
       <div id="slots"></div>
@@ -205,7 +206,7 @@ function setStatus(msg,cls){ const s=$("status"); s.textContent=msg; s.className
 const S = {
   letter:"M", lfont:"Abril Fatface", lheight:150, lthick:20, split:false, splitAt:40,
   name:"Madhav", nfont:"Pacifico", nheight:50, nthick:4, ngrow:0.6, nspacing:0, nx:0, ny:-8, nrot:0,
-  colors:{letter:"#c8102e",split:"#1f4fd8",name:"#f4f4f4",pattern:"#16181d",nameback:"#16181d"}, view:"stand", cut:true, cutDepth:2, cutGap:0.2, showName:true, nstyle:"plain", nback:2.5, nbackT:2, nshape:"straight", nbend:35, tmf:"bambu", attach:true, theme:"none", pattern:"none", patMode:"separate", patBorder:true, borderW:2, patRise:1, patSize:100, patLine:1.2, pseed:7
+  colors:{letter:"#c8102e",split:"#1f4fd8",name:"#f4f4f4",pattern:"#16181d",nameback:"#16181d"}, view:"stand", cut:true, cutDepth:2, cutGap:0.2, showName:true, nstyle:"plain", nback:2.5, nbackT:2, nshape:"straight", nbend:35, tmf:"bambu", maxFil:4, attach:true, theme:"none", pattern:"none", patMode:"separate", patBorder:true, borderW:2, patRise:1, patSize:100, patLine:1.2, pseed:7
 };
 const FONT_GROUPS={"Serif and slab": [["Abril Fatface", 400], ["Playfair Display", 900], ["Alfa Slab One", 400], ["Rozha One", 400], ["Ultra", 400], ["Bevan", 400], ["DM Serif Display", 400], ["Merriweather", 900], ["Roboto Slab", 900], ["Arvo", 700], ["Cinzel", 900]], "Bold display": [["Anton", 400], ["Bebas Neue", 400], ["Archivo Black", 400], ["Russo One", 400], ["Righteous", 400], ["Passion One", 700], ["Paytone One", 400], ["Changa One", 400], ["Bowlby One", 400], ["Rubik", 900], ["Poppins", 900], ["Montserrat", 900], ["Bungee", 400]], "Playful": [["Bangers", 400], ["Luckiest Guy", 400], ["Titan One", 400], ["Chewy", 400], ["Lilita One", 400], ["Fredoka", 700], ["Baloo 2", 800], ["Permanent Marker", 400], ["Creepster", 400]], "Script": [["Pacifico", 400], ["Lobster", 400], ["Lobster Two", 700], ["Oleo Script", 700], ["Kaushan Script", 400], ["Courgette", 400], ["Yellowtail", 400], ["Satisfy", 400], ["Cookie", 400], ["Dancing Script", 700], ["Damion", 400], ["Leckerli One", 400], ["Playball", 400], ["Grand Hotel", 400], ["Berkshire Swash", 400], ["Norican", 400], ["Niconne", 400], ["Sriracha", 400], ["Caveat", 700], ["Kalam", 700], ["Great Vibes", 400], ["Sacramento", 400]], "On this computer": [["Georgia", 700], ["Times New Roman", 700], ["Arial Black", 900], ["Impact", 400], ["Brush Script MT", 400], ["Segoe Script", 700], ["Comic Sans MS", 700]]};
 const SYS="On this computer", fontInfo={};
@@ -300,6 +301,7 @@ $("name").addEventListener("input",e=>{S.name=e.target.value; schedule();});
 $("split").addEventListener("change",e=>{S.split=e.target.checked; $("fields-split").hidden=!S.split; schedule();});
 $("price").addEventListener("input",updateStats);
 $("tmf").addEventListener("change",e=>{ S.tmf=e.target.value; updateStats(); });
+$("maxfil").addEventListener("change",e=>{ S.maxFil=parseInt(e.target.value)||4; updateStats(); });
 $("attach").addEventListener("change",e=>{ S.attach=e.target.checked; updateStats(); });
 for(const [k,n] of [["plain","Plain"],["outline","Outline"],["shadow","Shadow"]]){
   const b=document.createElement("button"); b.type="button"; b.textContent=n; b.dataset.k=k; b.setAttribute("aria-pressed",k===S.nstyle);
@@ -881,8 +883,9 @@ function updateStats(){
   for(const p of list){ const g=p.vol/1000*dens; tot+=g;
     rows+=`<tr><td><span class="sw" style="background:${p.color}"></span>${esc(p.name)}</td><td class="n">${(p.vol/1000).toFixed(1)}</td><td class="n">${g.toFixed(1)}</td></tr>`; }
   $("parts").innerHTML=rows;
-  const sl=filamentSlots(list);
-  $("slots").innerHTML=S.tmf==="bambu"&&sl.length?`<p class="note"><b>Filament slots in the 3MF.</b> Bambu Studio shows each part in the colour of its filament slot, so set these colours on the slots after opening:</p><table>${sl.map((c,k)=>`<tr><td>Filament ${k+1}</td><td><span class="sw" style="background:${c}"></span>${c}</td><td>${list.filter(p=>p.color.toLowerCase()===c).map(p=>esc(p.name)).join(", ")||"painted areas"}</td></tr>`).join("")}</table>`:"";
+  const plan=slotPlan(list), sl=plan.slots;
+  $("slots").innerHTML=S.tmf==="bambu"&&sl.length?`<p class="note"><b>Filament slots in the 3MF.</b> Bambu Studio shows each part in the colour of its filament slot. Have at least <b>${sl.length} filament${sl.length>1?"s":""}</b> in the project before you open the file, then set these colours:</p><table>${sl.map((c,k)=>`<tr><td>Filament ${k+1}</td><td><span class="sw" style="background:${c}"></span>${c}</td><td>${list.filter(p=>plan.of[p.color.toLowerCase()]===k+1).map(p=>esc(p.name)).join(", ")||"painted areas"}</td></tr>`).join("")}</table>`
+    +(plan.merged.length?`<p class="note warn">${plan.merged.length} colour${plan.merged.length>1?"s were":" was"} moved to the nearest slot to fit ${sl.length} filaments: ${plan.merged.map(m=>`<span class="sw" style="background:${m.from}"></span>to Filament ${m.to}`).join(", ")}. Raise "Filaments in my printer" to keep them apart.</p>`:""):"";
   const price=parseFloat($("price").value)||0;
   $("cost").innerHTML=list.length?`<b>${list.length} parts, ${tot.toFixed(0)} g</b> if printed solid in PLA, about <b>${(tot/1000*price).toFixed(0)}</b> in filament. With 15% infill expect roughly a third of that.`:"Type a letter to begin.";
 }
@@ -1113,7 +1116,7 @@ $("modelfile").addEventListener("change",async e=>{
         rot:0,rx:0,ry:0,scale:100,x:0,y:0,z:0,sock:true,sockDepth:2,licence:"unknown",source:"",creator:""};
       // keep the file's own colours; anything the file left uncoloured gets one editable default
       const used=new Set(parsed.col), fromFile=parsed.pal.filter((c,i)=>c&&used.has(i)).length;
-      m.col=parsed.col; m.pal=parsed.pal.map(c=>c||"#f2c230"); m.palUsed=parsed.pal.map((c,i)=>used.has(i)); m.fromFile=fromFile;
+      m.col=parsed.col; m.pal=parsed.pal.map(c=>c||S.colors.name); m.palUsed=parsed.pal.map((c,i)=>used.has(i)); m.fromFile=fromFile;
       autoFit(m); paintModel(m);
       m.mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:"#ffffff",vertexColors:true,roughness:0.6,flatShading:true}));
       root.add(m.mesh); models.push(m); applyModel(m); renderModels(); updateStats(); schedule();
@@ -1261,6 +1264,17 @@ function assembledGroup(){ return [{name:S.letter.trim()+" assembled",parts:asse
 // filament slots: one per distinct colour, in the order the parts appear
 function filamentSlots(list){ const slots=[]; const add=c=>{ c=c.toLowerCase(); if(!slots.includes(c)) slots.push(c); };
   for(const p of list){ add(p.color); if(p.triCol) for(const c of new Set(Array.from(p.triCol,i=>p.colors[i]))) add(c); } return slots; }
+// fit the colours into the filaments the printer has: the biggest colours keep a slot, the rest join their nearest match
+function slotPlan(list){
+  const all=filamentSlots(list), max=Math.max(1,S.maxFil||4), use={};
+  for(const p of list){ const c=p.color.toLowerCase(); use[c]=(use[c]||0)+(p.vol!=null?p.vol:p.pos?meshVolume(p.pos):0); }
+  const keep=all.slice().sort((a,b)=>(use[b]||0)-(use[a]||0)).slice(0,max), slots=all.filter(c=>keep.includes(c));
+  const rgb=c=>[1,3,5].map(k=>parseInt(c.slice(k,k+2),16)), of={}, merged=[];
+  for(const c of all){ let k=slots.indexOf(c);
+    if(k<0){ const a=rgb(c); let bd=1e9; slots.forEach((t,q)=>{ const b=rgb(t), d=(a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2; if(d<bd){ bd=d; k=q; } }); merged.push({from:c,to:k+1}); }
+    of[c]=k+1; }
+  return {slots,of,merged};
+}
 function build3MF(groups){ return S.tmf==="standard"?buildStd3MF(groups):buildBambu3MF(groups); }
 function meshXML(p,triAttr){ const map=new Map(), vs=[], ts=[], pos=p.pos;
   for(let t=0;t<pos.length;t+=9){ const idx=[];
@@ -1274,7 +1288,7 @@ function layoutGroups(groups){ let cx=0, cy=0, rowH=0; return groups.map(g=>{ if
   if(cx>0&&cx+g.w>250){ cx=0; cy+=rowH+6; rowH=0; } const at=[cx+g.w/2,cy+g.h/2]; cx+=g.w+6; rowH=Math.max(rowH,g.h); return at; }); }
 // 3MF laid out the way Bambu Studio and OrcaSlicer write their own files: each object's parts arrive assigned to filament slots
 function buildBambu3MF(groups){
-  const enc=new TextEncoder(), all=groups.flatMap(g=>g.parts), slots=filamentSlots(all), slot=c=>Math.min(16,slots.indexOf(c.toLowerCase())+1);
+  const enc=new TextEncoder(), all=groups.flatMap(g=>g.parts), plan=slotPlan(all), slots=plan.slots, slot=c=>plan.of[c.toLowerCase()]||1;
   const paint=n=>n===1?"4":n===2?"8":(n-3).toString(16).toUpperCase()+"C";
   const NS='xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p"';
   const uuid=(a,b)=>`${String(a).padStart(4,"0")}${String(b).padStart(4,"0")}-81cb-4c03-9d28-80fed5dfa1dc`;
@@ -1317,9 +1331,9 @@ function buildStd3MF(groups){
     {name:"3D/3dmodel.model",data:enc.encode(model)}]);
 }
 function licenceLog(list){
-  const fs=filamentSlots(list);
+  const plan=slotPlan(list), fs=plan.slots;
   const lines=["Themed Letter Forge licence log",`Design: letter "${S.letter}" with name "${S.name}"`,`Letter size: ${bounds.w.toFixed(0)} x ${bounds.h.toFixed(0)} x ${S.lthick} mm`,"",
-    "Parts in this download:",...list.map(p=>"- "+p.name+" (filament "+(fs.indexOf(p.color.toLowerCase())+1)+", "+p.color+")"),"",
+    "Parts in this download:",...list.map(p=>"- "+p.name+" (filament "+plan.of[p.color.toLowerCase()]+", "+p.color+")"),"",
     "Filament slots: "+fs.map((c,k)=>(k+1)+" = "+c).join(", "),"",
     `Fonts used: ${S.lfont} (letter), ${S.nfont} (name). Check that each font allows commercial use.`,
     "Image badges come from pictures you supplied. Check that you may sell them.",""];
@@ -1368,7 +1382,7 @@ $("export").addEventListener("click",()=>runExport(false));
 $("exportall").addEventListener("click",()=>runExport(true));
 getCap().then(c=>{ if(c) $("exportnote").innerHTML+=" It arrives inside a small <b>.zip</b>, because this viewer cannot save a .3mf file directly. Unzip it once and open the .3mf in your slicer."; });
 
-window.__forge={S,exportGroups,assembledGroup,buildBambu3MF,buildStd3MF,filamentSlots,build3MFOnly,assembledParts,applyTheme,models,badges,exportParts,buildZip,generate,parse3MF,build3MF,parseSTL,stlBinary,addBadge,get P(){return P;}};
+window.__forge={S,slotPlan,exportGroups,assembledGroup,buildBambu3MF,buildStd3MF,filamentSlots,build3MFOnly,assembledParts,applyTheme,models,badges,exportParts,buildZip,generate,parse3MF,build3MF,parseSTL,stlBinary,addBadge,get P(){return P;}};
 resize(); setView("stand"); generate();
 </script>
 </body>
